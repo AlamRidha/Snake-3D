@@ -1,0 +1,6 @@
+*.log
+my_config.ini
+node_modules/
+build/
+temp/
+.env

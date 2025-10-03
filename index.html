@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snake 3D - Game Seru</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Eating Sound -->
+    <audio id="eatSound" preload="auto">
+      <source src="assets/sounds/eating_cutting_2sec.mp3" type="audio/mpeg" />
+      <!-- <source src="assets/sounds/eat.ogg" type="audio/ogg" /> -->
+    </audio>
+
+    <!-- Game Over -->
+    <audio id="gameOverSound" preload="auto">
+      <source src="assets/sounds/game_over_cutting.mp3" type="audio/mpeg" />
+      <!-- <source src="assets/sounds/lose.ogg" type="audio/ogg" /> -->
+    </audio>
+  </head>
+  <body>
+    <!-- Background Particles -->
+    <div id="particles-js"></div>
+
+    <div id="loading">
+      <div class="loader-container">
+        <div class="loader"></div>
+        <div class="loading-text">Loading Snake 3D...</div>
+        <div class="loading-subtext">Prepare for an epic space adventure!</div>
+      </div>
+    </div>
+
+    <div id="gameContainer" class="hidden">
+      <!-- Header -->
+      <div id="header">
+        <h1>🐍 SNAKE 3D</h1>
+        <div class="game-info">
+          <div class="info-item">
+            <span class="icon">🎯</span>
+            <span>Eat the food</span>
+          </div>
+          <div class="info-item">
+            <span class="icon">⚠️</span>
+            <span>Avoid walls & yourself</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main UI -->
+      <div id="ui">
+        <div id="scorePanel">
+          <div class="score-container">
+            <div class="score-icon">🏆</div>
+            <div class="score-text">
+              <div class="score-label">SCORE</div>
+              <div id="scoreValue" class="score-value">0</div>
+            </div>
+          </div>
+          <div class="speed-container">
+            <div class="speed-icon">⚡</div>
+            <div class="speed-text">
+              <div class="speed-label">SPEED</div>
+              <div id="speedValue" class="speed-value">1.0x</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOver" class="hidden">
+          <div class="game-over-content">
+            <div class="game-over-icon">💀</div>
+            <h2>GAME OVER</h2>
+            <div class="final-score">
+              <div class="final-score-label">FINAL SCORE</div>
+              <div id="finalScore" class="final-score-value">0</div>
+            </div>
+            <div class="game-over-buttons">
+              <button id="restart" class="btn-primary">
+                <span class="btn-icon">🔄</span>
+                PLAY AGAIN
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="pause" class="hidden">
+          <div class="pause-content">
+            <div class="pause-icon">⏸️</div>
+            <h2>GAME PAUSED</h2>
+            <div class="pause-buttons">
+              <button id="resume" class="btn-primary">
+                <span class="btn-icon">▶️</span>
+                CONTINUE
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Panel -->
+      <div id="controlsPanel">
+        <div class="controls-section">
+          <h3>🎮 MOVEMENT</h3>
+          <div class="controls-grid">
+            <div class="control-item">
+              <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+              <span>Move Snake</span>
+            </div>
+            <div class="control-item">
+              <kbd>Q</kbd><kbd>E</kbd>
+              <span>X-Axis Move</span>
+            </div>
+            <div class="control-item">
+              <kbd>SPACE</kbd>
+              <span>Pause Game</span>
+            </div>
+            <div class="control-item">
+              <kbd>R</kbd>
+              <span>Restart</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="camera-section">
+          <h3>📷 CAMERA</h3>
+          <div class="control-item">
+            <kbd>MOUSE</kbd>
+            <span>Rotate View</span>
+          </div>
+          <div class="control-item">
+            <kbd>SCROLL</kbd>
+            <span>Zoom</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Controls (akan hidden di desktop) -->
+      <div id="mobileControls" class="hidden">
+        <div class="mobile-controls-grid">
+          <button class="mobile-btn" id="upBtn">↑</button>
+          <button class="mobile-btn" id="leftBtn">←</button>
+          <button class="mobile-btn" id="downBtn">↓</button>
+          <button class="mobile-btn" id="rightBtn">→</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
