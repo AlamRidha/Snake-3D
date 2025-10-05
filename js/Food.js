@@ -10,51 +10,96 @@ export class Food {
     this.gridSize = 20;
     this.isInitialized = false;
     this.lastSpawnPosition = null;
+    this.use3DModel = true; // Flag untuk gunakan 3D model
 
     this.initializeFood();
   }
 
-  initializeFood() {
-    this.createFallbackFood();
+  async initializeFood() {
+    try {
+      // Coba load 3D model apple terlebih dahulu
+      if (this.use3DModel) {
+        await this.loadAppleModel();
+      }
+    } catch (error) {
+      console.log("3D model not available, using fallback food");
+      this.createFallbackFood();
+    }
+
+    // Jika 3D model gagal, buat fallback
+    if (!this.mesh) {
+      this.createFallbackFood();
+    }
+
     this.scene.add(this.mesh);
     this.respawn(this.gridSize);
     this.isInitialized = true;
   }
 
+  async loadAppleModel() {
+    return new Promise((resolve, reject) => {
+      this.modelLoader.load(
+        "assets/models/apple.glb",
+        (gltf) => {
+          const model = gltf.scene;
+
+          // Optimize model settings
+          model.scale.set(0.8, 0.8, 0.8);
+          model.castShadow = true;
+          model.receiveShadow = true;
+
+          // Enable shadows untuk semua children
+          model.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+
+          // Add glow effect
+          this.addGlowEffect(model);
+
+          this.mesh = model;
+          console.log("🍎 3D Apple model loaded successfully");
+          resolve();
+        },
+        undefined,
+        (error) => {
+          console.error("Failed to load apple model:", error);
+          reject(error);
+        }
+      );
+    });
+  }
+
+  addGlowEffect(model) {
+    const glowLight = new THREE.PointLight(0xff4757, 0.6, 4);
+    glowLight.position.set(0, 0.5, 0);
+    model.add(glowLight);
+  }
+
   createFallbackFood() {
     const group = new THREE.Group();
 
-    // Main food body
-    const geometry = new THREE.SphereGeometry(0.5, 16, 16);
+    // Main food body - lebih detail
+    const geometry = new THREE.SphereGeometry(0.5, 32, 32);
     const material = new THREE.MeshPhongMaterial({
       color: 0xff4757,
       emissive: 0xff0000,
-      emissiveIntensity: 0.4,
+      emissiveIntensity: 0.3,
       shininess: 100,
+      specular: 0x222222,
     });
 
     const foodMesh = new THREE.Mesh(geometry, material);
     foodMesh.castShadow = true;
     group.add(foodMesh);
 
-    // Leaf
-    const leafGeometry = new THREE.ConeGeometry(0.2, 0.4, 8);
-    const leafMaterial = new THREE.MeshPhongMaterial({
-      color: 0x00ff00,
-      shininess: 30,
-    });
-    const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
-    leaf.position.set(0.3, 0.5, 0);
-    leaf.rotation.z = Math.PI / 6;
-    group.add(leaf);
+    // Enhanced leaf dengan lebih detail
+    this.createEnhancedLeaf(group);
 
-    // Stem
-    const stemGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.2, 8);
-    const stemMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 });
-    const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-    stem.position.set(0.15, 0.6, 0);
-    stem.rotation.z = Math.PI / 6;
-    group.add(stem);
+    // Enhanced stem
+    this.createEnhancedStem(group);
 
     // Glow effect
     const glowLight = new THREE.PointLight(0xff4757, 0.8, 3);
@@ -63,86 +108,63 @@ export class Food {
     this.mesh = group;
   }
 
+  createEnhancedLeaf(group) {
+    const leafGroup = new THREE.Group();
+
+    // Leaf base
+    const leafGeometry = new THREE.ConeGeometry(0.25, 0.5, 8);
+    const leafMaterial = new THREE.MeshPhongMaterial({
+      color: 0x00ff00,
+      shininess: 40,
+      specular: 0x111111,
+    });
+
+    const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+    leaf.rotation.z = Math.PI / 6;
+    leafGroup.add(leaf);
+
+    // Leaf detail
+    const detailGeometry = new THREE.SphereGeometry(0.1, 6, 6);
+    const detail = new THREE.Mesh(detailGeometry, leafMaterial);
+    detail.position.set(0.1, 0.3, 0);
+    detail.scale.set(1.5, 0.8, 1);
+    leafGroup.add(detail);
+
+    leafGroup.position.set(0.3, 0.5, 0);
+    group.add(leafGroup);
+  }
+
+  createEnhancedStem(group) {
+    const stemGeometry = new THREE.CylinderGeometry(0.04, 0.06, 0.25, 8);
+    const stemMaterial = new THREE.MeshPhongMaterial({
+      color: 0x5d4037,
+      shininess: 20,
+    });
+
+    const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+    stem.position.set(0.15, 0.6, 0);
+    stem.rotation.z = Math.PI / 6;
+    group.add(stem);
+  }
+
   respawn(gridSize = 20) {
     if (!this.isInitialized || !this.mesh) return;
 
     this.gridSize = gridSize;
-    const halfGrid = gridSize / 2;
-
-    // FIXED: Adjusted margins untuk boundaries yang lebih baik
-    const margin = 3; // Increased margin untuk hindari boundaries
-    const minX = -halfGrid + margin;
-    const maxX = halfGrid - margin;
-    const minY = 3; // Increased dari 2 ke 3
-    const maxY = gridSize - 3; // Increased dari 2 ke 3
-    const minZ = -halfGrid + margin;
-    const maxZ = halfGrid - margin;
+    const bounds = this.calculateSpawnBounds();
 
     let newPosition;
     let attempts = 0;
-    const maxAttempts = 10; // Reduced dari 15 ke 10
+    const maxAttempts = 8; // Reduced further for performance
 
-    // FIXED: Weighted random zones untuk distribusi yang lebih baik
-    const zoneWeights = [0.3, 0.25, 0.25, 0.2]; // Center, Corner, Edge, Random
-    const spawnZone = this.getWeightedRandomZone(zoneWeights);
+    const spawnZone = this.getWeightedRandomZone([0.35, 0.25, 0.25, 0.15]);
 
     do {
-      switch (spawnZone) {
-        case 0: // Zone 1: Area tengah
-          newPosition = this.generateCenterPosition(
-            minX,
-            maxX,
-            minY,
-            maxY,
-            minZ,
-            maxZ
-          );
-          break;
-        case 1: // Zone 2: Area corners
-          newPosition = this.generateCornerPosition(
-            minX,
-            maxX,
-            minY,
-            maxY,
-            minZ,
-            maxZ
-          );
-          break;
-        case 2: // Zone 3: Area edges
-          newPosition = this.generateEdgePosition(
-            minX,
-            maxX,
-            minY,
-            maxY,
-            minZ,
-            maxZ
-          );
-          break;
-        case 3: // Zone 4: Completely random
-        default:
-          newPosition = this.generateRandomPosition(
-            minX,
-            maxX,
-            minY,
-            maxY,
-            minZ,
-            maxZ
-          );
-          break;
-      }
-
+      newPosition = this.generatePositionByZone(spawnZone, bounds);
       attempts++;
 
       if (attempts >= maxAttempts) {
-        console.log("Max attempts reached, using fallback position");
-        newPosition = this.generateFallbackPosition(
-          minX,
-          maxX,
-          minY,
-          maxY,
-          minZ,
-          maxZ
-        );
+        newPosition = this.generateFallbackPosition(bounds);
         break;
       }
     } while (
@@ -150,20 +172,24 @@ export class Food {
       attempts < maxAttempts
     );
 
-    this.position.copy(newPosition);
-    this.lastSpawnPosition = this.position.clone();
-
-    console.log(
-      `🍎 Food spawned at:`,
-      this.position.toArray(),
-      `(zone: ${spawnZone}, attempt: ${attempts})`
-    );
-
-    this.mesh.position.copy(this.position);
-    this.animateSpawn();
+    this.updatePosition(newPosition, spawnZone, attempts);
   }
 
-  // FIXED: Added weighted random function
+  calculateSpawnBounds() {
+    const halfGrid = this.gridSize / 2;
+    const margin = 3;
+
+    return {
+      minX: -halfGrid + margin,
+      maxX: halfGrid - margin,
+      minY: 3,
+      maxY: this.gridSize - 3,
+      minZ: -halfGrid + margin,
+      maxZ: halfGrid - margin,
+      halfGrid: halfGrid,
+    };
+  }
+
   getWeightedRandomZone(weights) {
     const random = Math.random();
     let sum = 0;
@@ -173,138 +199,158 @@ export class Food {
       if (random <= sum) return i;
     }
 
-    return weights.length - 1; // Fallback ke zone terakhir
+    return weights.length - 1;
   }
 
-  generateCenterPosition(minX, maxX, minY, maxY, minZ, maxZ) {
-    // FIXED: Center area yang lebih proportional
-    const centerSize = Math.min(10, this.gridSize * 0.5); // Max 10 units atau 50% grid
-    const centerMinX = -centerSize / 2;
-    const centerMaxX = centerSize / 2;
-    const centerMinY = this.gridSize * 0.3; // 30% dari tinggi
-    const centerMaxY = this.gridSize * 0.7; // 70% dari tinggi
-    const centerMinZ = -centerSize / 2;
-    const centerMaxZ = centerSize / 2;
-
-    const x = centerMinX + Math.random() * (centerMaxX - centerMinX);
-    const y = centerMinY + Math.random() * (centerMaxY - centerMinY);
-    const z = centerMinZ + Math.random() * (centerMaxZ - centerMinZ);
-
-    return new THREE.Vector3(x, y, z);
+  generatePositionByZone(zone, bounds) {
+    switch (zone) {
+      case 0:
+        return this.generateCenterPosition(bounds);
+      case 1:
+        return this.generateCornerPosition(bounds);
+      case 2:
+        return this.generateEdgePosition(bounds);
+      case 3:
+        return this.generateRandomPosition(bounds);
+      default:
+        return this.generateRandomPosition(bounds);
+    }
   }
 
-  generateCornerPosition(minX, maxX, minY, maxY, minZ, maxZ) {
-    // FIXED: Corner positions dengan variasi height yang lebih baik
+  generateCenterPosition(bounds) {
+    const centerSize = Math.min(8, this.gridSize * 0.4);
+    return new THREE.Vector3(
+      (Math.random() - 0.5) * centerSize,
+      bounds.minY +
+        (bounds.maxY - bounds.minY) * 0.3 +
+        Math.random() * (bounds.maxY - bounds.minY) * 0.4,
+      (Math.random() - 0.5) * centerSize
+    );
+  }
+
+  generateCornerPosition(bounds) {
     const corners = [
-      new THREE.Vector3(minX, minY + 1, minZ), // Back-left-bottom
-      new THREE.Vector3(minX, minY + 1, maxZ), // Front-left-bottom
-      new THREE.Vector3(maxX, minY + 1, minZ), // Back-right-bottom
-      new THREE.Vector3(maxX, minY + 1, maxZ), // Front-right-bottom
-      new THREE.Vector3(minX, maxY - 1, minZ), // Back-left-top
-      new THREE.Vector3(minX, maxY - 1, maxZ), // Front-left-top
-      new THREE.Vector3(maxX, maxY - 1, minZ), // Back-right-top
-      new THREE.Vector3(maxX, maxY - 1, maxZ), // Front-right-top
-      // Middle height corners
-      new THREE.Vector3(minX, (minY + maxY) / 2, minZ),
-      new THREE.Vector3(minX, (minY + maxY) / 2, maxZ),
-      new THREE.Vector3(maxX, (minY + maxY) / 2, minZ),
-      new THREE.Vector3(maxX, (minY + maxY) / 2, maxZ),
+      [bounds.minX, bounds.minY, bounds.minZ],
+      [bounds.minX, bounds.minY, bounds.maxZ],
+      [bounds.maxX, bounds.minY, bounds.minZ],
+      [bounds.maxX, bounds.minY, bounds.maxZ],
+      [bounds.minX, bounds.maxY, bounds.minZ],
+      [bounds.minX, bounds.maxY, bounds.maxZ],
+      [bounds.maxX, bounds.maxY, bounds.minZ],
+      [bounds.maxX, bounds.maxY, bounds.maxZ],
+      [bounds.minX, (bounds.minY + bounds.maxY) / 2, bounds.minZ],
+      [bounds.minX, (bounds.minY + bounds.maxY) / 2, bounds.maxZ],
+      [bounds.maxX, (bounds.minY + bounds.maxY) / 2, bounds.minZ],
+      [bounds.maxX, (bounds.minY + bounds.maxY) / 2, bounds.maxZ],
     ];
 
-    const randomCorner = corners[Math.floor(Math.random() * corners.length)];
+    const [baseX, baseY, baseZ] =
+      corners[Math.floor(Math.random() * corners.length)];
+    const offset = 1.2;
 
-    // FIXED: Smaller offset untuk tetap dekat corner
-    const offset = 1.5;
-    const x = randomCorner.x + (Math.random() - 0.5) * offset;
-    const y = randomCorner.y + (Math.random() - 0.5) * offset;
-    const z = randomCorner.z + (Math.random() - 0.5) * offset;
-
-    return new THREE.Vector3(x, y, z);
+    return new THREE.Vector3(
+      baseX + (Math.random() - 0.5) * offset,
+      baseY + (Math.random() - 0.5) * offset,
+      baseZ + (Math.random() - 0.5) * offset
+    );
   }
 
-  generateEdgePosition(minX, maxX, minY, maxY, minZ, maxZ) {
-    // FIXED: Edge positions dengan height distribution yang lebih baik
+  generateEdgePosition(bounds) {
     const edge = Math.floor(Math.random() * 6);
-
-    // Height tiers untuk variasi vertikal
-    const heightTiers = [minY + 2, (minY + maxY) / 2, maxY - 2];
+    const heightTiers = [
+      bounds.minY + 2,
+      (bounds.minY + bounds.maxY) / 2,
+      bounds.maxY - 2,
+    ];
     const randomHeight =
       heightTiers[Math.floor(Math.random() * heightTiers.length)];
 
-    let x, y, z;
-
     switch (edge) {
-      case 0: // Bottom edge (Y = minY)
-        x = minX + Math.random() * (maxX - minX);
-        y = minY + 1.5;
-        z = minZ + Math.random() * (maxZ - minZ);
-        break;
-      case 1: // Top edge (Y = maxY)
-        x = minX + Math.random() * (maxX - minX);
-        y = maxY - 1.5;
-        z = minZ + Math.random() * (maxZ - minZ);
-        break;
-      case 2: // Left edge (X = minX)
-        x = minX + 1.5;
-        y = randomHeight;
-        z = minZ + Math.random() * (maxZ - minZ);
-        break;
-      case 3: // Right edge (X = maxX)
-        x = maxX - 1.5;
-        y = randomHeight;
-        z = minZ + Math.random() * (maxZ - minZ);
-        break;
-      case 4: // Back edge (Z = minZ)
-        x = minX + Math.random() * (maxX - minX);
-        y = randomHeight;
-        z = minZ + 1.5;
-        break;
-      case 5: // Front edge (Z = maxZ)
+      case 0:
+        return new THREE.Vector3( // Bottom
+          bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+          bounds.minY + 1.2,
+          bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
+        );
+      case 1:
+        return new THREE.Vector3( // Top
+          bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+          bounds.maxY - 1.2,
+          bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
+        );
+      case 2:
+        return new THREE.Vector3( // Left
+          bounds.minX + 1.2,
+          randomHeight,
+          bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
+        );
+      case 3:
+        return new THREE.Vector3( // Right
+          bounds.maxX - 1.2,
+          randomHeight,
+          bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
+        );
+      case 4:
+        return new THREE.Vector3( // Back
+          bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+          randomHeight,
+          bounds.minZ + 1.2
+        );
       default:
-        x = minX + Math.random() * (maxX - minX);
-        y = randomHeight;
-        z = maxZ - 1.5;
-        break;
+        return new THREE.Vector3( // Front
+          bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+          randomHeight,
+          bounds.maxZ - 1.2
+        );
     }
-
-    return new THREE.Vector3(x, y, z);
   }
 
-  generateRandomPosition(minX, maxX, minY, maxY, minZ, maxZ) {
-    const x = minX + Math.random() * (maxX - minX);
-    const y = minY + Math.random() * (maxY - minY);
-    const z = minZ + Math.random() * (maxZ - minZ);
-
-    return new THREE.Vector3(x, y, z);
+  generateRandomPosition(bounds) {
+    return new THREE.Vector3(
+      bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+      bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
+      bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
+    );
   }
 
-  generateFallbackPosition(minX, maxX, minY, maxY, minZ, maxZ) {
-    // FIXED: Fallback position yang lebih aman (bukan tepat di center)
-    const x = (minX + maxX) / 2 + (Math.random() - 0.5) * 4;
-    const y = (minY + maxY) / 2 + (Math.random() - 0.5) * 4;
-    const z = (minZ + maxZ) / 2 + (Math.random() - 0.5) * 4;
-
-    return new THREE.Vector3(x, y, z);
+  generateFallbackPosition(bounds) {
+    return new THREE.Vector3(
+      (bounds.minX + bounds.maxX) / 2 + (Math.random() - 0.5) * 3,
+      (bounds.minY + bounds.maxY) / 2 + (Math.random() - 0.5) * 3,
+      (bounds.minZ + bounds.maxZ) / 2 + (Math.random() - 0.5) * 3
+    );
   }
 
   isTooCloseToLastPosition(newPosition) {
     if (!this.lastSpawnPosition) return false;
+    return newPosition.distanceTo(this.lastSpawnPosition) < 4;
+  }
 
-    const distance = newPosition.distanceTo(this.lastSpawnPosition);
-    const minDistance = 4; // FIXED: Increased dari 3 ke 4 untuk lebih variety
+  updatePosition(newPosition, zone, attempts) {
+    this.position.copy(newPosition);
+    this.lastSpawnPosition = this.position.clone();
 
-    return distance < minDistance;
+    console.log(
+      `🍎 Food spawned at: [${this.position.x.toFixed(
+        1
+      )}, ${this.position.y.toFixed(1)}, ${this.position.z.toFixed(
+        1
+      )}] (zone: ${zone}, attempt: ${attempts})`
+    );
+
+    this.mesh.position.copy(this.position);
+    this.animateSpawn();
   }
 
   animateSpawn() {
     if (!this.isInitialized || !this.mesh || typeof TWEEN === "undefined")
       return;
 
-    // FIXED: Reset animation state
+    // Reset state
     this.mesh.scale.set(0.1, 0.1, 0.1);
     this.mesh.rotation.set(0, 0, 0);
 
-    // Stop any existing animations
+    // Clean previous animations
     TWEEN.removeAll();
 
     // Scale animation
@@ -315,42 +361,38 @@ export class Food {
 
     // Rotation animation
     new TWEEN.Tween(this.mesh.rotation)
-      .to(
-        {
-          x: Math.PI * 0.1,
-          y: Math.PI * 4, // FIXED: Increased rotation untuk effect lebih dramatis
-          z: Math.PI * 0.05,
-        },
-        1200
-      )
+      .to({ x: Math.PI * 0.1, y: Math.PI * 4, z: Math.PI * 0.05 }, 1200)
       .easing(TWEEN.Easing.Cubic.Out)
       .start();
 
-    // Floating animation - hanya jika tidak di lantai/atap
+    // Floating animation (conditional)
     if (
       this.position.y > this.gridSize * 0.2 &&
       this.position.y < this.gridSize * 0.8
     ) {
-      const originalY = this.mesh.position.y;
-      new TWEEN.Tween(this.mesh.position)
-        .to({ y: originalY + 0.4 }, 1800) // FIXED: Increased float height dan duration
-        .easing(TWEEN.Easing.Sinusoidal.InOut)
-        .yoyo(true)
-        .repeat(Infinity)
-        .start();
+      this.startFloatingAnimation();
     }
   }
 
-  getPosition() {
-    if (!this.isInitialized || !this.mesh) return new THREE.Vector3(0, 5, 0);
-    return this.position;
+  startFloatingAnimation() {
+    const originalY = this.mesh.position.y;
+    new TWEEN.Tween(this.mesh.position)
+      .to({ y: originalY + 0.3 }, 2000)
+      .easing(TWEEN.Easing.Sinusoidal.InOut)
+      .yoyo(true)
+      .repeat(Infinity)
+      .start();
   }
 
-  // FIXED: Added cleanup method
+  getPosition() {
+    return this.isInitialized && this.mesh
+      ? this.position
+      : new THREE.Vector3(0, 5, 0);
+  }
+
   destroy() {
     if (this.mesh) {
       this.scene.remove(this.mesh);
-      // Clean up Tween animations
       if (typeof TWEEN !== "undefined") {
         TWEEN.removeAll();
       }

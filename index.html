@@ -14,13 +14,11 @@
     <!-- Eating Sound -->
     <audio id="eatSound" preload="auto">
       <source src="assets/sounds/eating_cutting_2sec.mp3" type="audio/mpeg" />
-      <!-- <source src="assets/sounds/eat.ogg" type="audio/ogg" /> -->
     </audio>
 
     <!-- Game Over -->
     <audio id="gameOverSound" preload="auto">
       <source src="assets/sounds/game_over_cutting.mp3" type="audio/mpeg" />
-      <!-- <source src="assets/sounds/lose.ogg" type="audio/ogg" /> -->
     </audio>
   </head>
   <body>
@@ -67,6 +65,15 @@
               <div class="speed-label">SPEED</div>
               <div id="speedValue" class="speed-value">1.0x</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Camera Mode Display -->
+        <div id="cameraPanel" class="camera-panel">
+          <div class="camera-icon">📷</div>
+          <div class="camera-text">
+            <div class="camera-label">CAMERA MODE</div>
+            <div id="cameraMode" class="camera-value">Follow</div>
           </div>
         </div>
 
@@ -124,29 +131,60 @@
               <kbd>R</kbd>
               <span>Restart</span>
             </div>
+            <div class="control-item">
+              <kbd>C</kbd>
+              <span>Change Camera</span>
+            </div>
           </div>
         </div>
 
         <div class="camera-section">
           <h3>📷 CAMERA</h3>
-          <div class="control-item">
-            <kbd>MOUSE</kbd>
-            <span>Rotate View</span>
+          <div class="camera-modes">
+            <div class="camera-mode-item active" data-mode="follow">
+              <div class="mode-icon">🎯</div>
+              <div class="mode-info">
+                <div class="mode-name">Follow</div>
+                <div class="mode-desc">Mengikuti dari belakang</div>
+              </div>
+            </div>
+            <div class="camera-mode-item" data-mode="orbit">
+              <div class="mode-icon">🔄</div>
+              <div class="mode-info">
+                <div class="mode-name">Orbit</div>
+                <div class="mode-desc">Mengitari ular</div>
+              </div>
+            </div>
+            <div class="camera-mode-item" data-mode="top">
+              <div class="mode-icon">⬇️</div>
+              <div class="mode-info">
+                <div class="mode-name">Top Down</div>
+                <div class="mode-desc">Pandangan dari atas</div>
+              </div>
+            </div>
           </div>
-          <div class="control-item">
-            <kbd>SCROLL</kbd>
-            <span>Zoom</span>
+          <div class="control-hint">
+            <kbd>MOUSE</kbd> <span>Rotate (Orbit Mode)</span>
+          </div>
+          <div class="control-hint">
+            <kbd>SCROLL</kbd> <span>Zoom (Orbit Mode)</span>
           </div>
         </div>
       </div>
 
-      <!-- Mobile Controls (akan hidden di desktop) -->
+      <!-- Mobile Controls -->
       <div id="mobileControls" class="hidden">
         <div class="mobile-controls-grid">
           <button class="mobile-btn" id="upBtn">↑</button>
           <button class="mobile-btn" id="leftBtn">←</button>
           <button class="mobile-btn" id="downBtn">↓</button>
           <button class="mobile-btn" id="rightBtn">→</button>
+        </div>
+        <div class="mobile-camera-controls">
+          <button id="mobileCameraBtn" class="mobile-camera-btn">
+            <span class="camera-btn-icon">📷</span>
+            <span class="camera-btn-text">Camera</span>
+          </button>
         </div>
       </div>
     </div>

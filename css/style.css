@@ -236,9 +236,13 @@ canvas {
   color: var(--text-light);
 }
 
-/* Game Over & Pause Screens */
+/* PERBAIKAN: Game Over & Pause Screens - Fixed positioning and sizing */
 #gameOver,
 #pause {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: rgba(30, 30, 46, 0.95);
   backdrop-filter: blur(20px);
   border: 2px solid var(--glass-border);
@@ -248,12 +252,16 @@ canvas {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: fadeInScale 0.6s ease-out;
   pointer-events: auto;
-  z-index: 100;
+  z-index: 1000;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
 }
 
 .game-over-content,
 .pause-content {
-  max-width: 300px;
+  max-width: 400px;
+  width: 100%;
 }
 
 .game-over-icon,
@@ -263,15 +271,18 @@ canvas {
   animation: bounce 2s infinite;
 }
 
+/* PERBAIKAN: Ukuran font untuk game over yang lebih responsif */
 #gameOver h2,
 #pause h2 {
   font-family: "Orbitron", sans-serif;
-  font-size: 2.5rem;
+  font-size: clamp(2rem, 5vw, 2.5rem); /* Responsive font size */
   margin-bottom: 20px;
   background: linear-gradient(45deg, var(--danger-color), var(--warning-color));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  word-wrap: break-word;
+  line-height: 1.2;
 }
 
 .final-score {
@@ -288,7 +299,7 @@ canvas {
 
 .final-score-value {
   font-family: "Orbitron", sans-serif;
-  font-size: 3rem;
+  font-size: clamp(2.5rem, 6vw, 3rem); /* Responsive font size */
   font-weight: 900;
   color: var(--success-color);
   text-shadow: 0 0 20px rgba(46, 213, 115, 0.5);
@@ -312,9 +323,12 @@ canvas {
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   margin: 10px auto;
   box-shadow: 0 8px 25px rgba(255, 71, 87, 0.3);
+  width: 100%;
+  max-width: 200px;
 }
 
 .btn-primary:hover {
@@ -505,11 +519,11 @@ canvas {
 @keyframes fadeInScale {
   from {
     opacity: 0;
-    transform: scale(0.8);
+    transform: translate(-50%, -50%) scale(0.8);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -580,6 +594,27 @@ canvas {
   #mobileControls {
     display: block;
   }
+
+  /* PERBAIKAN: Game Over responsive untuk tablet */
+  #gameOver,
+  #pause {
+    padding: 30px;
+    max-width: 95vw;
+  }
+
+  .game-over-content,
+  .pause-content {
+    max-width: 350px;
+  }
+
+  #gameOver h2,
+  #pause h2 {
+    font-size: 2rem;
+  }
+
+  .final-score-value {
+    font-size: 2.5rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -594,6 +629,49 @@ canvas {
 
   #controlsPanel {
     display: none;
+  }
+
+  /* PERBAIKAN: Game Over responsive untuk mobile */
+  #gameOver,
+  #pause {
+    padding: 25px 20px;
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+
+  .game-over-content,
+  .pause-content {
+    max-width: 300px;
+  }
+
+  #gameOver h2,
+  #pause h2 {
+    font-size: 1.8rem;
+    margin-bottom: 15px;
+  }
+
+  .game-over-icon,
+  .pause-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+  }
+
+  .final-score {
+    margin: 20px 0;
+  }
+
+  .final-score-label {
+    font-size: 0.8rem;
+  }
+
+  .final-score-value {
+    font-size: 2rem;
+  }
+
+  .btn-primary {
+    padding: 12px 24px;
+    font-size: 0.9rem;
+    max-width: 180px;
   }
 }
 
@@ -623,4 +701,264 @@ canvas {
 .mute-btn:hover {
   background: var(--primary-color) !important;
   transform: scale(1.1) !important;
+}
+
+/* Camera Panel */
+.camera-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: slideInLeft 0.8s ease-out;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.camera-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ffa502, #ff4757);
+  border-radius: 10px;
+}
+
+.camera-text {
+  flex: 1;
+}
+
+.camera-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+.camera-value {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+/* Camera Modes in Controls Panel */
+.camera-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.camera-mode-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+}
+
+.camera-mode-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.camera-mode-item.active {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 71, 87, 0.2),
+    rgba(55, 66, 250, 0.2)
+  );
+  border-color: var(--primary-color);
+}
+
+.mode-icon {
+  font-size: 1.2rem;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg);
+  border-radius: 8px;
+}
+
+.mode-info {
+  flex: 1;
+}
+
+.mode-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-light);
+  margin-bottom: 2px;
+}
+
+.mode-desc {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.control-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.control-hint:last-child {
+  margin-bottom: 0;
+}
+
+.control-hint kbd {
+  background: linear-gradient(
+    135deg,
+    var(--warning-color),
+    var(--primary-color)
+  );
+  color: white;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 60px;
+  text-align: center;
+  font-family: "Orbitron", sans-serif;
+}
+
+.control-hint span {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  flex: 1;
+}
+
+/* Mobile Camera Controls */
+.mobile-camera-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.mobile-camera-btn {
+  width: 70px;
+  height: 70px;
+  border: none;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 2px solid var(--glass-border);
+  color: var(--text-light);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.mobile-camera-btn:active {
+  background: var(--primary-color);
+  transform: scale(0.95);
+}
+
+.camera-btn-icon {
+  font-size: 1.5rem;
+}
+
+.camera-btn-text {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* Responsive Design for Camera Controls */
+@media (max-width: 768px) {
+  .camera-panel {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .camera-icon {
+    width: 35px;
+    height: 35px;
+    font-size: 1.2rem;
+  }
+
+  .camera-value {
+    font-size: 0.9rem;
+  }
+
+  .camera-label {
+    font-size: 0.6rem;
+  }
+
+  .mobile-camera-btn {
+    width: 60px;
+    height: 60px;
+  }
+
+  .camera-btn-icon {
+    font-size: 1.3rem;
+  }
+
+  .camera-btn-text {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .camera-panel {
+    display: none;
+  }
+
+  #controlsPanel {
+    display: none;
+  }
+}
+
+/* PERBAIKAN TAMBAHAN: Memastikan konten game over tidak terpotong pada layar sangat kecil */
+@media (max-width: 360px) {
+  #gameOver,
+  #pause {
+    padding: 20px 15px;
+    max-width: 98vw;
+  }
+
+  .game-over-content,
+  .pause-content {
+    max-width: 280px;
+  }
+
+  #gameOver h2,
+  #pause h2 {
+    font-size: 1.6rem;
+  }
+
+  .final-score-value {
+    font-size: 1.8rem;
+  }
+
+  .btn-primary {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    max-width: 160px;
+  }
 }

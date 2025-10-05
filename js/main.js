@@ -22,7 +22,6 @@ class SoundManager {
   play(id) {
     if (this.muted || !this.sounds[id]) return;
 
-    // Reset sound untuk bisa play multiple times
     this.sounds[id].currentTime = 0;
     this.sounds[id].play().catch((e) => {
       console.log("Audio play failed:", e);
@@ -69,6 +68,15 @@ class Game {
     this.moveTimer = 0;
     this.baseSpeed = 0.1;
 
+    // Camera Modes - PERBAIKAN: Gunakan string yang sama dengan data-mode di HTML
+    this.cameraModes = {
+      FOLLOW: "follow",
+      ORBIT: "orbit",
+      TOP: "top",
+    };
+
+    this.currentCameraMode = this.cameraModes.FOLLOW;
+
     this.init();
   }
 
@@ -86,33 +94,15 @@ class Game {
   }
 
   setupSound() {
-    // NEW: Load game sounds
     this.soundManager.loadSound("eatSound", 0.6);
     this.soundManager.loadSound("gameOverSound", 0.5);
-
-    // Optional: Add mute toggle button handler
     this.setupMuteToggle();
   }
 
   setupMuteToggle() {
-    // Optional: Add mute button to UI
     const muteBtn = document.createElement("button");
     muteBtn.innerHTML = "🔊";
     muteBtn.className = "mute-btn";
-    muteBtn.style.cssText = `
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 100;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            color: white;
-            padding: 10px;
-            border-radius: 50%;
-            cursor: pointer;
-            backdrop-filter: blur(10px);
-        `;
-
     muteBtn.addEventListener("click", () => {
       const muted = this.soundManager.toggleMute();
       muteBtn.innerHTML = muted ? "🔇" : "🔊";
@@ -121,38 +111,168 @@ class Game {
     document.getElementById("gameContainer").appendChild(muteBtn);
   }
 
-  // UPDATE: Tambahkan sound di checkFoodCollision
-  checkFoodCollision() {
-    if (!this.snake.head || !this.food.mesh) return;
+  // PERBAIKAN: Setup camera controls yang benar
+  setupCameraControls() {
+    const cameraModeItems = document.querySelectorAll(".camera-mode-item");
 
-    const headPos = this.snake.getHeadPosition();
-    const foodPos = this.food.getPosition();
+    cameraModeItems.forEach((item) => {
+      item.addEventListener("click", () => {
+        const mode = item.dataset.mode;
+        console.log("Camera mode clicked:", mode); // Debug
+        this.setCameraMode(mode);
 
-    if (headPos.distanceTo(foodPos) < 1.5) {
-      this.snake.grow();
-      this.food.respawn(this.gridSize);
-      this.score += 10;
-      this.updateScore();
+        // Update active state
+        cameraModeItems.forEach((i) => i.classList.remove("active"));
+        item.classList.add("active");
+      });
+    });
 
-      // NEW: Play eat sound
-      this.soundManager.play("eatSound");
-
-      this.moveDelay = Math.max(0.03, this.moveDelay * 0.95);
-      this.updateSpeedDisplay();
-
-      this.showScoreEffect();
+    // Mobile camera button
+    const mobileCameraBtn = document.getElementById("mobileCameraBtn");
+    if (mobileCameraBtn) {
+      mobileCameraBtn.addEventListener("click", () => {
+        console.log("Mobile camera button clicked"); // Debug
+        this.cycleCameraMode();
+      });
     }
   }
 
-  // UPDATE: Tambahkan sound di endGame
-  endGame() {
-    this.gameOver = true;
-    document.getElementById("finalScore").textContent = this.score;
+  setCameraMode(mode) {
+    console.log("Setting camera mode to:", mode); // Debug
+    this.currentCameraMode = mode;
+    this.resetCamera();
+    this.updateCameraControls();
+    this.updateCameraModeDisplay();
+  }
 
-    // NEW: Play game over sound
-    this.soundManager.play("gameOverSound");
+  updateCameraModeDisplay() {
+    const modeDisplay = document.getElementById("cameraMode");
+    if (modeDisplay) {
+      const modeNames = {
+        [this.cameraModes.FOLLOW]: "Follow",
+        [this.cameraModes.ORBIT]: "Orbit",
+        [this.cameraModes.TOP]: "Top Down",
+      };
+      modeDisplay.textContent = modeNames[this.currentCameraMode];
+      console.log("Camera mode display updated to:", modeDisplay.textContent); // Debug
+    }
+  }
 
-    this.showGameOver();
+  cycleCameraMode() {
+    const modes = Object.values(this.cameraModes);
+    const currentIndex = modes.indexOf(this.currentCameraMode);
+    this.currentCameraMode = modes[(currentIndex + 1) % modes.length];
+
+    console.log("Cycling camera mode to:", this.currentCameraMode); // Debug
+
+    this.resetCamera();
+    this.updateCameraControls();
+    this.updateCameraModeDisplay();
+
+    // Update UI active state
+    const cameraModeItems = document.querySelectorAll(".camera-mode-item");
+    cameraModeItems.forEach((item) => {
+      item.classList.remove("active");
+      if (item.dataset.mode === this.currentCameraMode) {
+        item.classList.add("active");
+      }
+    });
+  }
+
+  // PERBAIKAN: Reset camera yang lebih baik
+  resetCamera() {
+    console.log("Resetting camera for mode:", this.currentCameraMode); // Debug
+
+    switch (this.currentCameraMode) {
+      case this.cameraModes.FOLLOW:
+        this.camera.position.set(25, 20, 25);
+        this.camera.lookAt(0, 5, 0);
+        break;
+      case this.cameraModes.ORBIT:
+        this.camera.position.set(0, 15, 25);
+        this.controls.target.set(0, 5, 0);
+        this.camera.lookAt(this.controls.target);
+        break;
+      case this.cameraModes.TOP:
+        this.camera.position.set(0, 35, 0.1); // Sedikit offset untuk menghindari issues
+        this.controls.target.set(0, 0, 0);
+        this.camera.lookAt(this.controls.target);
+        break;
+    }
+
+    this.controls.update();
+  }
+
+  updateCameraControls() {
+    console.log("Updating camera controls for mode:", this.currentCameraMode); // Debug
+
+    switch (this.currentCameraMode) {
+      case this.cameraModes.FOLLOW:
+        this.controls.enabled = false;
+        this.controls.minDistance = 10;
+        this.controls.maxDistance = 30;
+        break;
+      case this.cameraModes.ORBIT:
+        this.controls.enabled = true;
+        this.controls.minDistance = 8;
+        this.controls.maxDistance = 40;
+        this.controls.maxPolarAngle = Math.PI * 0.8;
+        break;
+      case this.cameraModes.TOP:
+        this.controls.enabled = true;
+        this.controls.minDistance = 20;
+        this.controls.maxDistance = 60;
+        this.controls.maxPolarAngle = Math.PI / 2;
+        break;
+    }
+  }
+
+  setupRenderer() {
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+    });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setClearColor(0x000000, 0);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(this.renderer.domElement);
+  }
+
+  setupCamera() {
+    this.camera = new THREE.PerspectiveCamera(
+      60,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.minDistance = 10;
+    this.controls.maxDistance = 50;
+    this.controls.maxPolarAngle = Math.PI * 0.8;
+
+    // Initialize camera
+    this.resetCamera();
+    this.updateCameraControls();
+  }
+
+  setupLights() {
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
+    this.scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(20, 30, 20);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    this.scene.add(directionalLight);
+
+    const pointLight = new THREE.PointLight(0xff4757, 0.6, 30);
+    pointLight.position.set(0, 10, 0);
+    this.scene.add(pointLight);
   }
 
   async createEnvironment() {
@@ -163,13 +283,11 @@ class Game {
           resolve,
           undefined,
           () => {
-            console.log("Background texture not found, using default color");
             resolve(new THREE.Color(0x001122));
           }
         );
       });
     } catch (error) {
-      console.log("Background texture error, using default color");
       this.scene.background = new THREE.Color(0x0a0a1a);
     }
 
@@ -202,58 +320,7 @@ class Game {
     this.scene.add(particlesMesh);
   }
 
-  setupRenderer() {
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-    });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.body.appendChild(this.renderer.domElement);
-  }
-
-  setupCamera() {
-    this.camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    // FIXED: Camera position untuk melihat seluruh arena
-    this.camera.position.set(25, 20, 25);
-    this.camera.lookAt(0, 5, 0);
-
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
-    this.controls.minDistance = 15;
-    this.controls.maxDistance = 60;
-    this.controls.maxPolarAngle = Math.PI * 0.8; // Prevent camera from going underneath
-  }
-
-  setupLights() {
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
-    this.scene.add(ambientLight);
-
-    // Directional light
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(20, 30, 20);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    this.scene.add(directionalLight);
-
-    // Point light for food glow
-    const pointLight = new THREE.PointLight(0xff4757, 0.6, 30);
-    pointLight.position.set(0, 10, 0);
-    this.scene.add(pointLight);
-  }
-
   createGrid() {
-    // FIXED: Grid di level yang terlihat
     const gridHelper = new THREE.GridHelper(
       this.gridSize,
       this.gridSize,
@@ -269,7 +336,6 @@ class Game {
   createBoundaries() {
     const halfSize = this.gridSize / 2;
 
-    // Transparent floor
     const floorGeometry = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
     const floorMaterial = new THREE.MeshPhongMaterial({
       color: 0x444444,
@@ -282,13 +348,10 @@ class Game {
     floor.position.y = 0;
     this.scene.add(floor);
 
-    // Enhanced 3D boundaries dengan visual yang jelas
     this.create3DBoundaries(halfSize);
-    this.createBoundaryIndicators(halfSize);
   }
 
   create3DBoundaries(halfSize) {
-    // Create wireframe cube untuk boundaries
     const boundaryGeometry = new THREE.BoxGeometry(
       this.gridSize,
       this.gridSize,
@@ -308,7 +371,6 @@ class Game {
     boundaryLines.position.y = halfSize;
     this.scene.add(boundaryLines);
 
-    // Add semi-transparent walls untuk depth perception
     const wallMaterial = new THREE.MeshPhongMaterial({
       color: 0xff4757,
       transparent: true,
@@ -316,7 +378,7 @@ class Game {
       side: THREE.DoubleSide,
     });
 
-    // Back wall
+    // Walls
     const backWall = new THREE.Mesh(
       new THREE.PlaneGeometry(this.gridSize, this.gridSize),
       wallMaterial
@@ -324,7 +386,6 @@ class Game {
     backWall.position.set(0, halfSize, -halfSize);
     this.scene.add(backWall);
 
-    // Front wall
     const frontWall = new THREE.Mesh(
       new THREE.PlaneGeometry(this.gridSize, this.gridSize),
       wallMaterial
@@ -333,7 +394,6 @@ class Game {
     frontWall.rotation.y = Math.PI;
     this.scene.add(frontWall);
 
-    // Left wall
     const leftWall = new THREE.Mesh(
       new THREE.PlaneGeometry(this.gridSize, this.gridSize),
       wallMaterial
@@ -342,7 +402,6 @@ class Game {
     leftWall.rotation.y = Math.PI / 2;
     this.scene.add(leftWall);
 
-    // Right wall
     const rightWall = new THREE.Mesh(
       new THREE.PlaneGeometry(this.gridSize, this.gridSize),
       wallMaterial
@@ -351,7 +410,6 @@ class Game {
     rightWall.rotation.y = -Math.PI / 2;
     this.scene.add(rightWall);
 
-    // Ceiling
     const ceiling = new THREE.Mesh(
       new THREE.PlaneGeometry(this.gridSize, this.gridSize),
       wallMaterial
@@ -359,215 +417,6 @@ class Game {
     ceiling.position.set(0, this.gridSize, 0);
     ceiling.rotation.x = Math.PI / 2;
     this.scene.add(ceiling);
-  }
-
-  createBoundaryIndicators(halfSize) {
-    // Corner indicators dengan warna berbeda
-    const colors = [0xff4757, 0x3742fa, 0x2ed573, 0xffa502];
-
-    const cornerGeometry = new THREE.SphereGeometry(0.4, 6, 6);
-
-    const corners = [
-      { pos: [-halfSize, 0, -halfSize], color: colors[0], label: "Back-Left" },
-      { pos: [-halfSize, 0, halfSize], color: colors[1], label: "Front-Left" },
-      { pos: [halfSize, 0, -halfSize], color: colors[2], label: "Back-Right" },
-      { pos: [halfSize, 0, halfSize], color: colors[3], label: "Front-Right" },
-      {
-        pos: [-halfSize, this.gridSize, -halfSize],
-        color: colors[0],
-        label: "Top-Back-Left",
-      },
-      {
-        pos: [-halfSize, this.gridSize, halfSize],
-        color: colors[1],
-        label: "Top-Front-Left",
-      },
-      {
-        pos: [halfSize, this.gridSize, -halfSize],
-        color: colors[2],
-        label: "Top-Back-Right",
-      },
-      {
-        pos: [halfSize, this.gridSize, halfSize],
-        color: colors[3],
-        label: "Top-Front-Right",
-      },
-    ];
-
-    corners.forEach((corner) => {
-      const material = new THREE.MeshPhongMaterial({
-        color: corner.color,
-        emissive: corner.color,
-        emissiveIntensity: 0.3,
-        transparent: true,
-        opacity: 0.7,
-      });
-
-      const indicator = new THREE.Mesh(cornerGeometry, material);
-      indicator.position.set(corner.pos[0], corner.pos[1], corner.pos[2]);
-      this.scene.add(indicator);
-    });
-
-    // Center point references
-    const centerGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
-    const centerMaterial = new THREE.MeshPhongMaterial({
-      color: 0xffffff,
-      emissive: 0xffffff,
-      emissiveIntensity: 0.2,
-    });
-
-    // Center floor point
-    const centerFloor = new THREE.Mesh(centerGeometry, centerMaterial);
-    centerFloor.position.set(0, 0.15, 0);
-    this.scene.add(centerFloor);
-
-    // Center ceiling point
-    const centerCeiling = new THREE.Mesh(centerGeometry, centerMaterial);
-    centerCeiling.position.set(0, this.gridSize - 0.15, 0);
-    this.scene.add(centerCeiling);
-  }
-
-  createWireframeBoundaries(halfSize) {
-    const boundaryColor = 0xff4757;
-    const boundaryGeometry = new THREE.BoxGeometry(
-      this.gridSize,
-      this.gridSize,
-      this.gridSize
-    );
-    const boundaryEdges = new THREE.EdgesGeometry(boundaryGeometry);
-
-    const boundaryLine = new THREE.LineSegments(
-      boundaryEdges,
-      new THREE.LineBasicMaterial({
-        color: boundaryColor,
-        transparent: true,
-        opacity: 0.6,
-        linewidth: 2,
-      })
-    );
-    boundaryLine.position.y = halfSize;
-    this.scene.add(boundaryLine);
-  }
-
-  createBoundaryMarkers(halfSize) {
-    const markerMaterial = new THREE.MeshPhongMaterial({
-      color: 0xff4757,
-      emissive: 0xff0000,
-      emissiveIntensity: 0.3,
-      transparent: true,
-      opacity: 0.8,
-    });
-
-    const markerGeometry = new THREE.SphereGeometry(0.3, 8, 8);
-
-    // Markers di setiap sudut
-    const cornerPositions = [
-      [-halfSize, 0, -halfSize],
-      [-halfSize, 0, halfSize],
-      [halfSize, 0, -halfSize],
-      [halfSize, 0, halfSize],
-      [-halfSize, this.gridSize, -halfSize],
-      [-halfSize, this.gridSize, halfSize],
-      [halfSize, this.gridSize, -halfSize],
-      [halfSize, this.gridSize, halfSize],
-    ];
-
-    cornerPositions.forEach((pos) => {
-      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-      marker.position.set(pos[0], pos[1], pos[2]);
-      this.scene.add(marker);
-    });
-
-    // Center markers untuk orientasi
-    const centerMarkerGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-    const centerMarkerMaterial = new THREE.MeshPhongMaterial({
-      color: 0x00ff00,
-      emissive: 0x00ff00,
-      emissiveIntensity: 0.2,
-    });
-
-    // Center floor marker
-    const centerFloor = new THREE.Mesh(
-      centerMarkerGeometry,
-      centerMarkerMaterial
-    );
-    centerFloor.position.set(0, 0.1, 0);
-    this.scene.add(centerFloor);
-
-    // Center ceiling marker
-    const centerCeiling = new THREE.Mesh(
-      centerMarkerGeometry,
-      centerMarkerMaterial
-    );
-    centerCeiling.position.set(0, this.gridSize - 0.1, 0);
-    this.scene.add(centerCeiling);
-  }
-  createWalls(halfSize, material) {
-    const wallGeometry = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
-
-    // Back wall (Z-negative)
-    const backWall = new THREE.Mesh(wallGeometry, material);
-    backWall.position.set(0, halfSize, -halfSize);
-    backWall.rotation.y = 0;
-    this.scene.add(backWall);
-
-    // Front wall (Z-positive)
-    const frontWall = new THREE.Mesh(wallGeometry, material);
-    frontWall.position.set(0, halfSize, halfSize);
-    frontWall.rotation.y = Math.PI;
-    this.scene.add(frontWall);
-
-    // Left wall (X-negative)
-    const leftWall = new THREE.Mesh(wallGeometry, material);
-    leftWall.position.set(-halfSize, halfSize, 0);
-    leftWall.rotation.y = Math.PI / 2;
-    this.scene.add(leftWall);
-
-    // Right wall (X-positive)
-    const rightWall = new THREE.Mesh(wallGeometry, material);
-    rightWall.position.set(halfSize, halfSize, 0);
-    rightWall.rotation.y = -Math.PI / 2;
-    this.scene.add(rightWall);
-  }
-
-  createCeiling(halfSize, material) {
-    // Ceiling (atap)
-    const ceilingGeometry = new THREE.PlaneGeometry(
-      this.gridSize,
-      this.gridSize
-    );
-    const ceiling = new THREE.Mesh(ceilingGeometry, material);
-    ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = this.gridSize; // Atap di atas arena
-    this.scene.add(ceiling);
-  }
-
-  createCornerPillars(halfSize) {
-    const pillarMaterial = new THREE.MeshPhongMaterial({
-      color: 0x3742fa,
-      transparent: true,
-      opacity: 0.4,
-    });
-
-    const pillarGeometry = new THREE.BoxGeometry(0.5, this.gridSize, 0.5);
-
-    // 8 pillars di setiap sudut
-    const positions = [
-      [-halfSize, halfSize / 2, -halfSize], // back-left-bottom
-      [-halfSize, halfSize / 2, halfSize], // front-left-bottom
-      [halfSize, halfSize / 2, -halfSize], // back-right-bottom
-      [halfSize, halfSize / 2, halfSize], // front-right-bottom
-      [-halfSize, halfSize / 2 + halfSize, -halfSize], // back-left-top
-      [-halfSize, halfSize / 2 + halfSize, halfSize], // front-left-top
-      [halfSize, halfSize / 2 + halfSize, -halfSize], // back-right-top
-      [halfSize, halfSize / 2 + halfSize, halfSize], // front-right-top
-    ];
-
-    positions.forEach((pos) => {
-      const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-      pillar.position.set(pos[0], pos[1], pos[2]);
-      this.scene.add(pillar);
-    });
   }
 
   hideLoading() {
@@ -598,9 +447,9 @@ class Game {
     this.snake = new Snake(this.scene, this.textureLoader);
     this.food = new Food(this.scene, this.textureLoader, this.modelLoader);
 
-    // FIXED: Reset camera position
-    this.camera.position.set(25, 20, 25);
-    this.controls.target.set(0, 5, 0);
+    // Reset camera
+    this.resetCamera();
+    this.updateCameraModeDisplay();
   }
 
   update() {
@@ -626,20 +475,51 @@ class Game {
     this.updateCamera();
   }
 
+  // PERBAIKAN: Update camera yang lebih robust
   updateCamera() {
     if (!this.snake || !this.snake.head) return;
 
     const snakePos = this.snake.getHeadPosition();
 
-    // FIXED: Better camera follow
-    const targetCamPos = new THREE.Vector3(
-      snakePos.x + 15,
-      Math.max(15, snakePos.y + 12),
-      snakePos.z + 15
-    );
+    // Untuk mode follow, kita butuh direction
+    let snakeDirection = new THREE.Vector3(0, 0, -1);
+    if (this.snake.direction) {
+      snakeDirection = this.snake.direction.clone();
+    }
 
-    this.camera.position.lerp(targetCamPos, 0.03);
-    this.controls.target.lerp(snakePos, 0.03);
+    switch (this.currentCameraMode) {
+      case this.cameraModes.FOLLOW:
+        const followDistance = 12;
+        const followHeight = 8;
+
+        const targetOffset = new THREE.Vector3(
+          -snakeDirection.x * followDistance,
+          followHeight,
+          -snakeDirection.z * followDistance
+        );
+
+        const targetCamPos = snakePos.clone().add(targetOffset);
+
+        // Smooth camera movement
+        this.camera.position.lerp(targetCamPos, 0.1);
+
+        // Look slightly ahead of snake
+        const lookTarget = snakePos
+          .clone()
+          .add(snakeDirection.multiplyScalar(5));
+        this.camera.lookAt(lookTarget);
+        break;
+
+      case this.cameraModes.ORBIT:
+        // Orbit mode - update target untuk mengikuti ular
+        this.controls.target.lerp(snakePos, 0.05);
+        break;
+
+      case this.cameraModes.TOP:
+        // Top-down view - update target untuk mengikuti ular
+        this.controls.target.lerp(snakePos, 0.05);
+        break;
+    }
   }
 
   checkFoodCollision() {
@@ -654,11 +534,9 @@ class Game {
       this.score += 10;
       this.updateScore();
 
-      // Increase speed gradually
+      this.soundManager.play("eatSound");
       this.moveDelay = Math.max(0.03, this.moveDelay * 0.95);
       this.updateSpeedDisplay();
-
-      // Visual feedback
       this.showScoreEffect();
     }
   }
@@ -686,6 +564,7 @@ class Game {
   endGame() {
     this.gameOver = true;
     document.getElementById("finalScore").textContent = this.score;
+    this.soundManager.play("gameOverSound");
     this.showGameOver();
   }
 
@@ -755,10 +634,14 @@ class Game {
           event.preventDefault();
           this.startGame();
           break;
+        case "KeyC":
+          event.preventDefault();
+          console.log("C key pressed - changing camera mode"); // Debug
+          this.cycleCameraMode();
+          break;
       }
     });
 
-    // UI Buttons
     document.getElementById("restart").addEventListener("click", () => {
       this.startGame();
     });
@@ -767,10 +650,14 @@ class Game {
       this.togglePause();
     });
 
-    // Mobile controls
+    // PERBAIKAN: Panggil setupCameraControls setelah DOM siap
+    setTimeout(() => {
+      this.setupCameraControls();
+      this.updateCameraModeDisplay(); // Initial display update
+    }, 100);
+
     this.setupMobileControls();
 
-    // Window resize
     window.addEventListener("resize", () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
@@ -814,7 +701,12 @@ class Game {
     }
 
     this.update();
-    this.controls.update();
+
+    // PERBAIKAN: Only update controls if they are enabled
+    if (this.controls.enabled) {
+      this.controls.update();
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 }

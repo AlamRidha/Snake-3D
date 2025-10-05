@@ -9,7 +9,7 @@ export class Snake {
     // Movement properties
     this.direction = new THREE.Vector3(1, 0, 0);
     this.nextDirection = this.direction.clone();
-    this.speed = 1.5;
+    this.speed = 1.5; // speed snake
     this.growPending = 0;
     this.isInitialized = false;
 
