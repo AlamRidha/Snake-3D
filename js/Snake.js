@@ -9,20 +9,18 @@ export class Snake {
     // Movement properties
     this.direction = new THREE.Vector3(1, 0, 0);
     this.nextDirection = this.direction.clone();
-    this.speed = 1.5; // speed snake
+    this.speed = 1.5;
     this.growPending = 0;
     this.isInitialized = false;
 
     // Materials
     this.headMaterial = null;
     this.bodyMaterial = null;
+    this.eyeMaterials = {};
 
-    // NEW: White eye material
-    this.eyeMaterial = new THREE.MeshPhongMaterial({
-      color: 0xffffff, // WHITE color
-      shininess: 100,
-      specular: 0x888888,
-    });
+    // PERBAIKAN: Simpan rotasi sebelumnya untuk smoothing
+    this.targetRotation = new THREE.Euler();
+    this.currentRotation = new THREE.Euler();
 
     this.initializeSnake();
   }
@@ -39,22 +37,20 @@ export class Snake {
       this.textureLoader.load(
         "assets/textures/snake-skin.jpg",
         (texture) => {
-          // Configure texture
           texture.wrapS = THREE.RepeatWrapping;
           texture.wrapT = THREE.RepeatWrapping;
-          texture.repeat.set(2, 2);
+          texture.repeat.set(3, 3);
 
-          // Create materials with texture
           this.headMaterial = new THREE.MeshPhongMaterial({
             map: texture,
-            shininess: 80,
-            specular: 0x222222,
+            shininess: 100,
+            specular: 0x333333,
           });
 
           this.bodyMaterial = new THREE.MeshPhongMaterial({
             map: texture,
-            shininess: 60,
-            specular: 0x111111,
+            shininess: 80,
+            specular: 0x222222,
           });
 
           console.log("🐍 Snake texture loaded successfully");
@@ -62,16 +58,20 @@ export class Snake {
         },
         undefined,
         () => {
-          // Fallback materials without texture
+          // Enhanced fallback materials
           this.headMaterial = new THREE.MeshPhongMaterial({
-            color: 0x00ff00,
-            shininess: 100,
+            color: 0x2ed573,
+            shininess: 120,
+            specular: 0x444444,
           });
+
           this.bodyMaterial = new THREE.MeshPhongMaterial({
-            color: 0x00cc00,
-            shininess: 50,
+            color: 0x25b562,
+            shininess: 80,
+            specular: 0x222222,
           });
-          console.log("🐍 Using fallback colors (texture not available)");
+
+          console.log("🐍 Using enhanced fallback colors");
           resolve();
         }
       );
@@ -84,75 +84,88 @@ export class Snake {
       return;
     }
 
-    const geometry = new THREE.SphereGeometry(0.5, 16, 16);
-    this.head = new THREE.Mesh(geometry, this.headMaterial);
+    // Create head as a Group untuk kontrol yang lebih baik
+    this.head = new THREE.Group();
     this.head.position.set(0, 5, 0);
-    this.head.castShadow = true;
 
-    this.addEyes();
+    // Main head body
+    const headGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const headMesh = new THREE.Mesh(headGeometry, this.headMaterial);
+    headMesh.castShadow = true;
+    this.head.add(headMesh);
+
+    // Add dynamic eyes
+    this.addDynamicEyes();
+
+    // Add tongue
     this.addTongue();
+
     this.scene.add(this.head);
     this.body.push(this.head);
+    this.headMesh = headMesh;
   }
 
-  addEyes() {
-    const eyeGeometry = new THREE.SphereGeometry(0.15, 12, 12);
-
-    // Left eye (WHITE)
-    const leftEye = new THREE.Mesh(eyeGeometry, this.eyeMaterial);
-    leftEye.position.set(0.4, 0.2, 0.3);
-    this.head.add(leftEye);
-
-    // Right eye (WHITE)
-    const rightEye = new THREE.Mesh(eyeGeometry, this.eyeMaterial);
-    rightEye.position.set(0.4, 0.2, -0.3);
-    this.head.add(rightEye);
-
-    // Add pupil for better visual
-    this.addPupils();
-  }
-
-  addPupils() {
-    const pupilGeometry = new THREE.SphereGeometry(0.06, 8, 8);
-    const pupilMaterial = new THREE.MeshPhongMaterial({
-      color: 0x000000,
+  addDynamicEyes() {
+    // Eye materials
+    this.eyeMaterials.white = new THREE.MeshPhongMaterial({
+      color: 0xffffff,
       shininess: 150,
+      specular: 0x888888,
     });
 
-    // Left pupil
-    const leftPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
-    leftPupil.position.set(0.45, 0.2, 0.25);
-    this.head.add(leftPupil);
+    this.eyeMaterials.pupil = new THREE.MeshPhongMaterial({
+      color: 0x000000,
+      shininess: 200,
+    });
 
-    // Right pupil
-    const rightPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
-    rightPupil.position.set(0.45, 0.2, -0.25);
-    this.head.add(rightPupil);
+    // Create eye groups
+    this.leftEyeGroup = new THREE.Group();
+    this.rightEyeGroup = new THREE.Group();
+
+    // White of the eye
+    const eyeGeometry = new THREE.SphereGeometry(0.12, 12, 12);
+    const leftEye = new THREE.Mesh(eyeGeometry, this.eyeMaterials.white);
+    const rightEye = new THREE.Mesh(eyeGeometry, this.eyeMaterials.white);
+
+    this.leftEyeGroup.add(leftEye);
+    this.rightEyeGroup.add(rightEye);
+
+    // Pupils
+    const pupilGeometry = new THREE.SphereGeometry(0.06, 8, 8);
+    this.leftPupil = new THREE.Mesh(pupilGeometry, this.eyeMaterials.pupil);
+    this.rightPupil = new THREE.Mesh(pupilGeometry, this.eyeMaterials.pupil);
+
+    this.leftEyeGroup.add(this.leftPupil);
+    this.rightEyeGroup.add(this.rightPupil);
+
+    // Position eye groups on head
+    this.leftEyeGroup.position.set(0.3, 0.1, 0.2);
+    this.rightEyeGroup.position.set(0.3, 0.1, -0.2);
+
+    this.head.add(this.leftEyeGroup);
+    this.head.add(this.rightEyeGroup);
   }
 
   addTongue() {
-    const tongueGroup = new THREE.Group();
+    this.tongueGroup = new THREE.Group();
 
-    // Tongue base
-    const tongueGeometry = new THREE.CylinderGeometry(0.03, 0.05, 0.3, 8);
+    // Tongue material
     const tongueMaterial = new THREE.MeshPhongMaterial({
-      color: 0xff0066,
-      shininess: 30,
+      color: 0xff3366,
+      shininess: 50,
     });
 
+    // Tongue base (simple version)
+    const tongueGeometry = new THREE.CylinderGeometry(0.02, 0.03, 0.3, 6);
     const tongue = new THREE.Mesh(tongueGeometry, tongueMaterial);
     tongue.rotation.z = Math.PI / 2;
-    tongue.position.set(0.5, 0, 0);
-    tongueGroup.add(tongue);
+    tongue.position.set(0.4, 0, 0);
+    this.tongueGroup.add(tongue);
 
-    // Tongue tip
-    const tipGeometry = new THREE.SphereGeometry(0.05, 6, 6);
-    const tip = new THREE.Mesh(tipGeometry, tongueMaterial);
-    tip.position.set(0.65, 0, 0);
-    tongueGroup.add(tip);
+    // Position tongue at front of head
+    this.tongueGroup.position.set(0.1, 0, 0);
 
-    this.head.add(tongueGroup);
-    this.tongue = tongueGroup;
+    this.head.add(this.tongueGroup);
   }
 
   createBodyParts(count) {
@@ -164,8 +177,8 @@ export class Snake {
   addBodyPart() {
     if (!this.bodyMaterial) return;
 
-    const geometry = new THREE.SphereGeometry(0.45, 12, 12);
-    const bodyPart = new THREE.Mesh(geometry, this.bodyMaterial);
+    const bodyGeometry = new THREE.SphereGeometry(0.45, 12, 12);
+    const bodyPart = new THREE.Mesh(bodyGeometry, this.bodyMaterial);
     bodyPart.castShadow = true;
 
     const lastPart = this.body[this.body.length - 1];
@@ -200,13 +213,16 @@ export class Snake {
     // Move head
     this.head.position.add(this.direction.clone().multiplyScalar(this.speed));
 
+    // PERBAIKAN: Update head rotation dengan cara yang lebih baik
+    this.updateHeadRotation();
+
     // Update body parts to follow head
     for (let i = 1; i < this.body.length; i++) {
       this.body[i].position.copy(previousPositions[i - 1]);
     }
 
-    // Handle tongue animation
-    this.updateTongueAnimation();
+    // Update eye direction
+    this.updateEyeDirection();
 
     // Handle growth
     if (this.growPending > 0) {
@@ -215,16 +231,57 @@ export class Snake {
     }
   }
 
-  updateTongueAnimation() {
-    if (!this.tongue) return;
+  updateHeadRotation() {
+    if (!this.head) return;
 
-    // Random tongue flick (2% chance per frame)
-    if (Math.random() < 0.02) {
-      this.tongue.scale.y = 1.2;
-      setTimeout(() => {
-        if (this.tongue) this.tongue.scale.y = 1.0;
-      }, 200);
+    // PERBAIKAN: Rotasi kepala yang lebih sederhana dan efektif
+    // Hitung sudut rotasi berdasarkan arah
+    let targetYRotation = 0;
+
+    if (this.direction.x > 0) {
+      targetYRotation = 0; // Kanan
+    } else if (this.direction.x < 0) {
+      targetYRotation = Math.PI; // Kiri
+    } else if (this.direction.z > 0) {
+      targetYRotation = Math.PI / 2; // Bawah
+    } else if (this.direction.z < 0) {
+      targetYRotation = -Math.PI / 2; // Atas
     }
+
+    // Smooth rotation menggunakan lerp
+    this.head.rotation.y = THREE.MathUtils.lerp(
+      this.head.rotation.y,
+      targetYRotation,
+      0.3
+    );
+  }
+
+  updateEyeDirection() {
+    if (!this.leftPupil || !this.rightPupil) return;
+
+    // PERBAIKAN: Mata mengikuti arah dengan benar
+    // Untuk sekarang, biarkan pupil tetap di tengah mata
+    // Rotasi kepala sudah menangani arah pandang
+
+    // Blink animation (random)
+    if (Math.random() < 0.005) {
+      this.animateBlink();
+    }
+  }
+
+  animateBlink() {
+    const originalScale = new THREE.Vector3(1, 1, 1);
+    const blinkScale = new THREE.Vector3(1, 0.1, 1);
+
+    this.leftEyeGroup.scale.copy(blinkScale);
+    this.rightEyeGroup.scale.copy(blinkScale);
+
+    setTimeout(() => {
+      if (this.leftEyeGroup && this.rightEyeGroup) {
+        this.leftEyeGroup.scale.copy(originalScale);
+        this.rightEyeGroup.scale.copy(originalScale);
+      }
+    }, 100);
   }
 
   changeDirection(newDirection) {
@@ -232,8 +289,11 @@ export class Snake {
 
     const currentDir = this.direction.clone();
 
-    // Prevent 180-degree turns
-    if (newDirection.dot(currentDir) < -0.5) {
+    // PERBAIKAN: Prevent 180-degree turns dengan cara yang lebih baik
+    const dotProduct = newDirection.dot(currentDir);
+
+    // Jika mencoba berbalik 180 derajat, tolak
+    if (dotProduct < -0.8) {
       return;
     }
 
@@ -284,6 +344,10 @@ export class Snake {
       return new THREE.Vector3(0, 5, 0);
     }
     return this.head.position;
+  }
+
+  getDirection() {
+    return this.direction.clone();
   }
 
   // Cleanup method for game restart

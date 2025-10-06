@@ -481,32 +481,32 @@ class Game {
 
     const snakePos = this.snake.getHeadPosition();
 
-    // Untuk mode follow, kita butuh direction
-    let snakeDirection = new THREE.Vector3(0, 0, -1);
-    if (this.snake.direction) {
-      snakeDirection = this.snake.direction.clone();
-    }
-
     switch (this.currentCameraMode) {
       case this.cameraModes.FOLLOW:
-        const followDistance = 12;
-        const followHeight = 8;
+        // PERBAIKAN: Camera follow yang lebih baik
+        const followDistance = 15;
+        const followHeight = 10;
 
-        const targetOffset = new THREE.Vector3(
-          -snakeDirection.x * followDistance,
-          followHeight,
-          -snakeDirection.z * followDistance
+        // Dapatkan arah ular yang sudah dinormalisasi
+        const snakeDirection = this.snake.getDirection().clone().normalize();
+
+        // Hitung posisi kamera di belakang ular
+        const targetCamPos = new THREE.Vector3(
+          snakePos.x - snakeDirection.x * followDistance,
+          snakePos.y + followHeight,
+          snakePos.z - snakeDirection.z * followDistance
         );
 
-        const targetCamPos = snakePos.clone().add(targetOffset);
-
-        // Smooth camera movement
+        // Smooth camera movement dengan lerp
         this.camera.position.lerp(targetCamPos, 0.1);
 
-        // Look slightly ahead of snake
-        const lookTarget = snakePos
-          .clone()
-          .add(snakeDirection.multiplyScalar(5));
+        // Look at point di depan ular
+        const lookTarget = new THREE.Vector3(
+          snakePos.x + snakeDirection.x * 5,
+          snakePos.y + 2,
+          snakePos.z + snakeDirection.z * 5
+        );
+
         this.camera.lookAt(lookTarget);
         break;
 
